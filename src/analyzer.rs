@@ -54,16 +54,22 @@ pub mod analyzer {
                     "jitter_spike" => {
                         jitter_spikes += 1;
                         let jitter = event_record["event"]["jitter_ms"].as_f64().unwrap_or(0.0);
+                        let confidence = event_record["event"]["confidence"].as_f64().unwrap_or(1.0);
                         total_jitter_sum += jitter;
                         if jitter > max_jitter {
                             max_jitter = jitter;
                         }
-                        // Baseline Based Scoring
+                        // Baseline Based Scoring with Confidence Weighting
                         let deviation = if jitter > base_ema_jitter { jitter - base_ema_jitter } else { 0.0 };
-                        jitter_penalty += deviation * 0.5; // Scale penalty by deviation severity
+                        jitter_penalty += (deviation * 0.5) * confidence;
                     },
                     "burst_loss" => {
                         burst_losses += 1;
+                    },
+                    "packet_loss" => {
+                        // Single packet losses aren't bursts, but still reduce stability slightly
+                        let confidence = event_record["event"]["confidence"].as_f64().unwrap_or(1.0);
+                        jitter_penalty += 2.0 * confidence; 
                     },
                     "interface_drop_spike" => {
                         let drops = event_record["event"]["dropped_packets"].as_u64().unwrap_or(0);
@@ -72,8 +78,9 @@ pub mod analyzer {
                     "cpu_scheduling_spike" => {
                         cpu_spikes += 1;
                         let dev = event_record["event"]["deviation_us"].as_u64().unwrap_or(0);
+                        let confidence = event_record["event"]["confidence"].as_f64().unwrap_or(1.0);
                         total_cpu_deviation += dev;
-                        jitter_penalty += (dev as f64 / 1000.0) * 0.5; // Penalty for OS Latency
+                        jitter_penalty += ((dev as f64 / 1000.0) * 0.5) * confidence; 
                     },
                     _ => {}
                 }

@@ -66,7 +66,7 @@ pub mod engine {
 
         let mut sequence = 0;
         let mut previous_rtt = 0.0;
-        let mut previous_interface_drops = 0;
+        let mut previous_interface_drops: u64 = 0;
         
         let mut sent = 0;
         let mut received = 0;
@@ -108,11 +108,21 @@ pub mod engine {
             let _ = socket.send_to(&packet.to_bytes(), &server_addr);
             sent += 1;
 
-            let current_stats = crate::collector::collector::get_total_interface_stats();
-            if let Some(event) = event_engine.analyze_interface(previous_interface_drops, current_stats.total_drops) {
+            let default_if_index = crate::collector::collector::get_default_interface_index();
+            let current_drops = if let Some(if_idx) = default_if_index {
+                if let Some(stats) = crate::collector::collector::get_interface_stats(if_idx) {
+                    stats.total_drops
+                } else {
+                    0
+                }
+            } else {
+                0
+            };
+
+            if let Some(event) = event_engine.analyze_interface(previous_interface_drops, current_drops) {
                 session_recorder.record(event);
             }
-            previous_interface_drops = current_stats.total_drops;
+            previous_interface_drops = current_drops;
 
             let mut buf = [0u8; 64];
             match socket.recv_from(&mut buf) {
@@ -149,15 +159,15 @@ pub mod engine {
                     }
                     current_consecutive_loss += 1;
                     
-                    if current_consecutive_loss >= 3 {
-                        if !is_silent {
-                            println!("[ALERT] Burst Packet Loss Detected!");
+                    if let Some(event) = event_engine.analyze_packet_loss(sequence, current_consecutive_loss) {
+                        if let crate::event::engine::GhostlineEvent::BurstLoss { .. } = event {
+                            if !is_silent {
+                                println!("[ALERT] Burst Packet Loss Detected!");
+                            }
+                            burst_loss_count += 1;
+                            current_consecutive_loss = 0; // Reset after recording burst
                         }
-                        burst_loss_count += 1;
-                        session_recorder.record(crate::event::engine::GhostlineEvent::BurstLoss {
-                            consecutive_losses: current_consecutive_loss,
-                        });
-                        current_consecutive_loss = 0; // Reset after recording burst
+                        session_recorder.record(event);
                     }
                 }
             }
