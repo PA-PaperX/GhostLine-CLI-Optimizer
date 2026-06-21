@@ -5,6 +5,8 @@ mod analyzer;
 mod optimizer;
 mod os_optimizer;
 mod app_debloater;
+mod baseline;
+mod recorder;
 mod tui;
 
 use std::env;
@@ -33,7 +35,7 @@ fn main() {
   \____|_| |_|\___/|___/\__|_|_|_| |_|\___|
     "#;
     println!("{}", logo.bright_red().bold());
-    println!("  {} - The Zero-Latency Network Engine\n", "WINDOWS EDITION".white().bold());
+    println!("  {} - Gaming Network Intelligence Suite\n", "WINDOWS EDITION".white().bold());
 
     if args.len() < 2 {
         println!("{}", "USAGE:".white().bold());
@@ -54,7 +56,8 @@ fn main() {
     match command.as_str() {
         "collector" => {
             println!("Starting Ghostline Windows Collector...");
-            collector::collector::print_interfaces();
+            let stats = collector::collector::get_total_interface_stats();
+            println!("Total Interface Drops: {}", stats.total_drops);
             collector::collector::print_routing_table();
         }
         "server" => {
