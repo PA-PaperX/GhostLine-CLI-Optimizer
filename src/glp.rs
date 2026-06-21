@@ -186,9 +186,12 @@ pub mod engine {
         let loss_percent = if sent > 0 { 
             (sent - received) as f64 / sent as f64 * 100.0 
         } else { 0.0 };
-        println!("Packet Loss: {:.2}%", loss_percent);
-        println!("Burst Loss Events: {}", burst_loss_count);
-        println!("-----------------------");
+        
+        if !is_silent {
+            println!("Packet Loss: {:.2}%", loss_percent);
+            println!("Burst Loss Events: {}", burst_loss_count);
+            println!("-----------------------");
+        }
 
         session_recorder.save_report("report.json");
     }
