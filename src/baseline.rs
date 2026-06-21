@@ -43,8 +43,8 @@ pub mod core {
         let mut ema_jitter = 0.0;
         let alpha = 0.125; // Standard RFC 1889 jitter weighting
         
-        // Take 100 samples for robust statistical distribution
-        for seq in 1..=100 {
+        // Quick Scan: Take 500 samples (approx 10 seconds at 20ms interval) for robust statistical distribution
+        for seq in 1..=500 {
             let start = crate::glp::engine::get_current_us();
             let packet = crate::glp::engine::GlpPacket {
                 sequence: seq,

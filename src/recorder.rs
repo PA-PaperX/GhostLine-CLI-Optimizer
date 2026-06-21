@@ -44,7 +44,7 @@ pub mod core {
             self.buffer.push_back(record);
         }
 
-        pub fn save_report(&self, filename: &str, metadata: Option<crate::collector::collector::InterfaceMetadata>) {
+        pub fn save_report(&self, filename: &str, metadata: Option<crate::collector::collector::InterfaceMetadata>, session_sample_count: u64) {
             // Pre-aggregate event_summary
             let mut event_summary: HashMap<String, u32> = HashMap::new();
             for record in &self.buffer {
@@ -60,18 +60,22 @@ pub mod core {
 
             let ended_at_chrono = Utc::now();
             let duration_sec = self.started_at_instant.elapsed().as_secs_f64();
+            let sampling_rate_hz = if duration_sec > 0.0 { (session_sample_count as f64 / duration_sec).round() as u64 } else { 0 };
 
             let os_build = crate::collector::collector::get_os_build_number();
 
             let mut report = serde_json::json!({
                 "schema_version": 2,
                 "ghostline_version": env!("CARGO_PKG_VERSION"),
+                "collector_version": "glp-v3",
                 "session": "ghostline_intelligence_scan",
                 "session_id": self.session_id.to_string(),
                 "probe_target": self.probe_target,
                 "started_at": self.started_at_chrono.to_rfc3339(),
                 "ended_at": ended_at_chrono.to_rfc3339(),
                 "duration_sec": duration_sec,
+                "session_sample_count": session_sample_count,
+                "sampling_rate_hz": sampling_rate_hz,
                 "total_events": self.buffer.len(),
                 "baseline_sample_count": self.baseline.sample_size,
                 "baseline_p50_rtt_ms": self.baseline.p50_rtt_ms,
@@ -94,6 +98,8 @@ pub mod core {
                 session_metadata["wifi"] = serde_json::json!(m.is_wifi);
                 session_metadata["network_type"] = serde_json::json!(m.network_type);
                 session_metadata["vpn_detected"] = serde_json::json!(m.vpn_detected);
+                session_metadata["link_speed_mbps"] = serde_json::json!(m.link_speed_mbps);
+                session_metadata["mtu"] = serde_json::json!(m.mtu);
                 if let Some(gw) = m.gateway {
                     session_metadata["gateway"] = serde_json::json!(gw);
                 }

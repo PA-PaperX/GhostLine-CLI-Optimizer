@@ -65,6 +65,8 @@ pub mod collector {
         pub network_type: String,
         pub vpn_detected: bool,
         pub gateway: Option<String>,
+        pub link_speed_mbps: u64,
+        pub mtu: u32,
     }
 
     pub fn get_interface_metadata(if_index: u32) -> Option<InterfaceMetadata> {
@@ -140,6 +142,9 @@ pub mod collector {
                         let name_lower = name.to_lowercase();
                         let vpn_detected = desc_lower.contains("warp") || desc_lower.contains("wireguard") || desc_lower.contains("openvpn") || desc_lower.contains("tap") || desc_lower.contains("tun") || name_lower.contains("vpn") || desc_lower.contains("vpn");
 
+                        let mtu = adapter.Mtu;
+                        let link_speed_mbps = adapter.TransmitLinkSpeed / 1_000_000;
+
                         return Some(InterfaceMetadata {
                             name,
                             description,
@@ -147,6 +152,8 @@ pub mod collector {
                             network_type,
                             vpn_detected,
                             gateway,
+                            link_speed_mbps,
+                            mtu,
                         });
                     }
                     current = adapter.Next;

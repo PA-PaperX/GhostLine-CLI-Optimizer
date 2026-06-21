@@ -205,6 +205,6 @@ pub mod engine {
 
         let default_if_index_for_report = crate::collector::collector::get_default_interface_index();
         let if_metadata_for_report = default_if_index_for_report.and_then(|idx| crate::collector::collector::get_interface_metadata(idx));
-        session_recorder.save_report("report.json", if_metadata_for_report);
+        session_recorder.save_report("report.json", if_metadata_for_report, sent);
     }
 }
