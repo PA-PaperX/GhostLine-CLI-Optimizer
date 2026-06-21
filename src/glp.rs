@@ -56,7 +56,7 @@ pub mod engine {
         }
     }
 
-    pub fn start_client(server_addr: &str, duration_secs: Option<u64>, is_silent: bool) {
+    pub fn start_client(server_addr: &str, duration_secs: Option<u64>, is_silent: bool, running_flag: std::sync::Arc<std::sync::atomic::AtomicBool>) {
         let socket = UdpSocket::bind("0.0.0.0:0").expect("Failed to bind client socket");
         socket.set_read_timeout(Some(Duration::from_millis(500))).unwrap();
 
@@ -72,12 +72,11 @@ pub mod engine {
         let mut received = 0;
         let mut burst_loss_count = 0;
         let mut current_consecutive_loss = 0;
-        let baseline = crate::baseline::core::establish_baseline(&socket, &server_addr);
+        let baseline = crate::baseline::core::establish_baseline(&socket, &server_addr, is_silent);
         let event_engine = crate::event::engine::EventEngine::new(&baseline);
         let mut session_recorder = crate::recorder::core::SessionRecorder::new(1000);
 
-        let running = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
-        let r = running.clone();
+        let r = running_flag.clone();
         ctrlc::set_handler(move || {
             if !is_silent {
                 println!("\nStopping Client... Generating Report...");
@@ -92,7 +91,7 @@ pub mod engine {
         
         let run_start_time = std::time::Instant::now();
 
-        while running.load(std::sync::atomic::Ordering::SeqCst) {
+        while running_flag.load(std::sync::atomic::Ordering::SeqCst) {
             if let Some(d) = duration_secs {
                 if run_start_time.elapsed().as_secs() >= d {
                     break;
@@ -137,25 +136,28 @@ pub mod engine {
                             if let Some(event) = event_engine.analyze_packet(rtt_ms, jitter) {
                                 session_recorder.record(event);
                             } else {
-                                println!("{}\t{:.2}\t\t{:.2}\t\t{}", sequence, rtt_ms, jitter, "OK");
+                                if !is_silent {
+                                    println!("{}\t{:.2}\t\t{:.2}\t\t{}", sequence, rtt_ms, jitter, "OK");
+                                }
                             }
                         }
                     }
                 }
                 Err(_) => {
-                    // Timeout
+                    if !is_silent {
+                        println!("{}\t--\t\t--\t\t{}", sequence, "Packet Loss");
+                    }
                     current_consecutive_loss += 1;
-                    if current_consecutive_loss >= 3 { // Threshold for Burst Loss
+                    
+                    if current_consecutive_loss >= 3 {
+                        if !is_silent {
+                            println!("[ALERT] Burst Packet Loss Detected!");
+                        }
                         burst_loss_count += 1;
                         session_recorder.record(crate::event::engine::GhostlineEvent::BurstLoss {
                             consecutive_losses: current_consecutive_loss,
                         });
-                        println!("{}\t--\t\t--\t\tBURST LOSS!", sequence);
-                    } else {
-                        session_recorder.record(crate::event::engine::GhostlineEvent::PacketLoss {
-                            sequence,
-                        });
-                        println!("{}\t--\t\t--\t\tTIMEOUT", sequence);
+                        current_consecutive_loss = 0; // Reset after recording burst
                     }
                 }
             }
@@ -164,9 +166,16 @@ pub mod engine {
             thread::sleep(Duration::from_millis(50));
         }
 
-        println!("\n--- SESSION SUMMARY ---");
-        println!("Packets Sent: {}", sent);
-        println!("Packets Received: {}", received);
+        if !is_silent {
+            println!("\n=================================");
+            println!("Ghostline Engine Session Complete");
+            println!("Packets Sent: {}", sent);
+            println!("Packets Recv: {}", received);
+            println!("Burst Losses: {}", burst_loss_count);
+            println!("Hardware Drops: {}", previous_interface_drops);
+            println!("=================================\n");
+        }
+        
         let loss_percent = if sent > 0 { 
             (sent - received) as f64 / sent as f64 * 100.0 
         } else { 0.0 };

@@ -25,6 +25,7 @@ pub mod app {
         MenuDebloater,
         Dashboard,
         Scanning,
+        Monitoring,
     }
 
     struct Particle {
@@ -49,8 +50,9 @@ pub mod app {
         let mut mode = InputMode::Normal;
         let mut current_analysis: Option<crate::analyzer::analyzer::GhostlineAnalysis> = None;
         let scan_finished = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let running_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
 
-        let main_menu_items = vec!["Network Optimizer >", "OS Optimizer >", "App Debloater >", "Run Quick Intelligence Scan (10s)", "Analyze Existing Report", "Exit"];
+        let main_menu_items = vec!["Network Optimizer >", "OS Optimizer >", "App Debloater >", "Start Background Gaming Monitor", "Analyze Existing Report", "Exit"];
         let net_menu_items = vec!["< Back", "Optimize Network Registry", "Restore Network Registry"];
         let os_menu_items = vec!["< Back", "Optimize ALL (Maximum Performance)", "Optimize CPU (Priority)", "Optimize Memory (AsyncWrite)", "Debloat (Telemetry/SysMain)", "Restore OS Settings"];
         let debloat_menu_items = vec![
@@ -99,7 +101,7 @@ pub mod app {
                     InputMode::MenuOS => 8,
                     InputMode::MenuDebloater => 9,
                     InputMode::Dashboard => 14,
-                    InputMode::Scanning => 5,
+                    InputMode::Scanning | InputMode::Monitoring => 5,
                 };
 
                 let chunks = Layout::default()
@@ -266,6 +268,17 @@ pub mod app {
                             .alignment(Alignment::Center);
                         f.render_widget(scan_box, chunks[4]);
                     }
+                    InputMode::Monitoring => {
+                        let scan_text = vec![
+                            Line::from(""),
+                            Line::from(vec![Span::styled("BACKGROUND GAMING MONITOR ACTIVE", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))]),
+                            Line::from(vec![Span::styled("Go play your game. When you are finished, press ", Style::default().fg(Color::White)), Span::styled("Enter", Style::default().fg(Color::Green)), Span::styled(" to stop and view results.", Style::default().fg(Color::White))]),
+                        ];
+                        let scan_box = Paragraph::new(scan_text)
+                            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Green)).title(" Intelligence Engine "))
+                            .alignment(Alignment::Center);
+                        f.render_widget(scan_box, chunks[4]);
+                    }
                 }
 
                 if !output_msg.is_empty() {
@@ -347,16 +360,18 @@ pub mod app {
                                             mode = InputMode::MenuDebloater;
                                             list_state.select(Some(0));
                                         } else if i == 3 {
+                                            running_flag.store(true, std::sync::atomic::Ordering::SeqCst);
+                                            let r = running_flag.clone();
                                             let sf = scan_finished.clone();
                                             std::thread::spawn(move || {
                                                 crate::glp::engine::start_server(13337, true);
                                             });
                                             std::thread::spawn(move || {
                                                 std::thread::sleep(std::time::Duration::from_millis(100));
-                                                crate::glp::engine::start_client("127.0.0.1:13337", Some(10), true);
+                                                crate::glp::engine::start_client("127.0.0.1:13337", None, true, r);
                                                 sf.store(true, std::sync::atomic::Ordering::SeqCst);
                                             });
-                                            mode = InputMode::Scanning;
+                                            mode = InputMode::Monitoring;
                                             output_msg.clear();
                                         } else if i == 4 {
                                             if let Ok(analysis) = crate::analyzer::analyzer::analyze_report("report.json") {
@@ -516,6 +531,15 @@ pub mod app {
                                     KeyCode::Esc => {
                                         mode = InputMode::MenuMain;
                                         output_msg = "Scan Aborted (Running in background)".to_string();
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            InputMode::Monitoring => {
+                                match key.code {
+                                    KeyCode::Enter => {
+                                        running_flag.store(false, std::sync::atomic::Ordering::SeqCst);
+                                        mode = InputMode::Scanning; // Wait state
                                     }
                                     _ => {}
                                 }

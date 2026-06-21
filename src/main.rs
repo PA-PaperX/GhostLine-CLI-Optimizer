@@ -76,7 +76,8 @@ fn main() {
             let ip = &args[2];
             let port: u16 = args[3].parse().unwrap_or(8080);
             let addr = format!("{}:{}", ip, port);
-            glp::engine::start_client(&addr, None, false);
+            let running = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+            glp::engine::start_client(&addr, None, false, running);
         }
         "analyze" => {
             if args.len() < 3 {

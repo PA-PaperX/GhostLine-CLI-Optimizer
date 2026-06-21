@@ -25,8 +25,10 @@ pub mod core {
         }
     }
 
-    pub fn establish_baseline(socket: &std::net::UdpSocket, target_addr: &str) -> NetworkBaseline {
-        println!("Establishing Network Baseline... (Gathering telemetry)");
+    pub fn establish_baseline(socket: &std::net::UdpSocket, target_addr: &str, is_silent: bool) -> NetworkBaseline {
+        if !is_silent {
+            println!("Establishing Network Baseline... (Gathering telemetry)");
+        }
         let mut total_rtt = 0.0;
         let mut previous_rtt = 0.0;
         let mut total_jitter = 0.0;
