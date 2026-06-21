@@ -8,6 +8,7 @@ mod app_debloater;
 mod baseline;
 mod recorder;
 mod tui;
+mod recommender;
 
 use std::env;
 use colored::Colorize;
@@ -43,6 +44,7 @@ fn main() {
         println!("  {}      - Start GLP Mock Server", "ghostline server <port>".bright_red());
         println!("  {} - Start GLP Client to measure Jitter", "ghostline client <ip> <port>".bright_red());
         println!("  {}     - Analyze report.json and show AI-style summary", "ghostline analyze <file>".bright_red());
+        println!("  {}    - Generate Root Cause Analysis and Suggestions", "ghostline diagnose <file>".bright_red());
         println!("  {} - Apply QoS and Adapter Tuning (Admin required)", "ghostline optimize <process>".bright_red());
         println!("  {}  - Restore original network settings (Admin required)", "ghostline restore <process>".bright_red());
         println!("  {}       - Apply Deep Registry Network Optimizations (Admin required)", "ghostline optimize-reg".bright_red());
@@ -91,6 +93,52 @@ fn main() {
             }
             let file = &args[2];
             analyzer::analyzer::print_analysis_cli(file);
+        }
+        "diagnose" => {
+            if args.len() < 3 {
+                println!("Usage: ghostline diagnose <file>");
+                return;
+            }
+            let file = &args[2];
+            match analyzer::analyzer::analyze_report(file) {
+                Ok(analysis) => {
+                    let report = recommender::core::diagnose(&analysis);
+                    
+                    println!("\n{}", "═══════════════════════════════".bright_blue());
+                    println!("{}", " Ghostline Root Cause Analysis".white().bold());
+                    println!("{}\n", "═══════════════════════════════".bright_blue());
+
+                    for (i, cause) in report.causes.iter().enumerate() {
+                        let header = if i == 0 { "Primary Cause:" } else { "Secondary Cause:" };
+                        println!("{}", header.bright_red().bold());
+                        println!("{}", cause.category.to_string().white().bold());
+                        println!("\nConfidence:");
+                        println!("{:.0}%\n", cause.confidence * 100.0);
+                        
+                        println!("Evidence:");
+                        for ev in &cause.evidence {
+                            println!("- {}", ev);
+                        }
+                        println!();
+                    }
+
+                    if !report.suggestions.is_empty() {
+                        println!("{}", "Suggested Fixes:\n".bright_green().bold());
+                        for (i, sug) in report.suggestions.iter().enumerate() {
+                            let risk_color = match sug.risk {
+                                recommender::core::RiskLevel::Safe => colored::Color::Green,
+                                recommender::core::RiskLevel::Moderate => colored::Color::Yellow,
+                                recommender::core::RiskLevel::Advanced => colored::Color::Red,
+                            };
+                            println!("[{}] {}", i + 1, sug.title.white().bold());
+                            println!("Risk: {}\n", sug.risk.to_string().color(risk_color));
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("Failed to diagnose: {}", e);
+                }
+            }
         }
         "optimize" => {
             if args.len() < 3 {
