@@ -38,6 +38,9 @@ pub mod analyzer {
         let mut max_jitter = 0.0;
         let mut jitter_penalty = 0.0;
 
+        let mut cpu_spikes = 0;
+        let mut total_cpu_deviation = 0;
+
         for event_record in events {
             if let Some(event_type) = event_record["event"]["event"].as_str() {
                 match event_type {
@@ -58,6 +61,12 @@ pub mod analyzer {
                     "interface_drop_spike" => {
                         let drops = event_record["event"]["dropped_packets"].as_u64().unwrap_or(0);
                         interface_drops += drops;
+                    },
+                    "cpu_scheduling_spike" => {
+                        cpu_spikes += 1;
+                        let dev = event_record["event"]["deviation_us"].as_u64().unwrap_or(0);
+                        total_cpu_deviation += dev;
+                        jitter_penalty += (dev as f64 / 1000.0) * 0.5; // Penalty for OS Latency
                     },
                     _ => {}
                 }
@@ -83,7 +92,10 @@ pub mod analyzer {
         };
 
         let mut severity = 0;
-        let diagnosis = if interface_drops > 0 {
+        let diagnosis = if cpu_spikes > 10 {
+            severity = 2;
+            "OS CPU Scheduler Bottleneck! Background apps or Windows services are hijacking your CPU and causing severe Input Lag.".to_string()
+        } else if interface_drops > 0 {
             severity = 2;
             "Hardware-level drops detected! Issue is likely bad ethernet cable or NIC driver.".to_string()
         } else if burst_losses > 0 {
@@ -94,7 +106,7 @@ pub mod analyzer {
             "High Jitter Variance relative to baseline (Bufferbloat). Recommend QoS or OS registry tweaks.".to_string()
         } else {
             severity = 0;
-            "Connection architecture is solid. No anomalies detected.".to_string()
+            "Connection architecture and OS scheduling are solid. No anomalies detected.".to_string()
         };
 
         let mut stability_index = 100.0;

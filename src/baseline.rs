@@ -6,6 +6,7 @@ pub mod core {
     pub struct NetworkBaseline {
         pub average_rtt_ms: f64,
         pub base_jitter_ms: f64,
+        pub base_cpu_dev_us: u64,
         pub sample_size: u32,
     }
 
@@ -14,14 +15,19 @@ pub mod core {
             Self {
                 average_rtt_ms: 0.0,
                 base_jitter_ms: 0.0,
+                base_cpu_dev_us: 0,
                 sample_size: 0,
             }
         }
 
         pub fn calculate_dynamic_threshold(&self) -> f64 {
-            // If the baseline jitter is 1ms, threshold is 5ms. If baseline is 10ms, threshold is 15ms.
             let base = if self.base_jitter_ms > 0.0 { self.base_jitter_ms } else { 2.0 };
             base * 2.5 + 5.0
+        }
+        
+        pub fn calculate_cpu_threshold_us(&self) -> u64 {
+            let base = if self.base_cpu_dev_us > 0 { self.base_cpu_dev_us } else { 2000 }; // 2ms default
+            base * 3 + 5000 // Substantial deviation threshold
         }
     }
 
@@ -72,8 +78,20 @@ pub mod core {
             baseline.sample_size = received;
         }
 
-        println!("Baseline Established: RTT {:.2}ms | Jitter {:.2}ms | Samples: {}", 
-                 baseline.average_rtt_ms, baseline.base_jitter_ms, baseline.sample_size);
+        // Measure CPU Scheduling Deviation Baseline
+        let mut total_cpu_dev_us = 0;
+        for _ in 0..10 {
+            let sleep_start = crate::glp::engine::get_current_us();
+            thread::sleep(Duration::from_millis(1));
+            let sleep_elapsed = crate::glp::engine::get_current_us().saturating_sub(sleep_start);
+            let expected_sleep = 1000;
+            let deviation = (sleep_elapsed as i64 - expected_sleep).abs() as u64;
+            total_cpu_dev_us += deviation;
+        }
+        baseline.base_cpu_dev_us = total_cpu_dev_us / 10;
+
+        println!("Baseline Established: RTT {:.2}ms | Jitter {:.2}ms | CPU Dev {}us | Samples: {}", 
+                 baseline.average_rtt_ms, baseline.base_jitter_ms, baseline.base_cpu_dev_us, baseline.sample_size);
         
         baseline
     }

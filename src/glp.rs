@@ -162,8 +162,15 @@ pub mod engine {
                 }
             }
 
-            // Send packet every 50ms (20 pps) simulating gaming traffic
-            thread::sleep(Duration::from_millis(50));
+            let sleep_start = get_current_us();
+            std::thread::sleep(Duration::from_millis(50));
+            let sleep_elapsed = get_current_us().saturating_sub(sleep_start);
+            let expected_sleep = 50_000;
+            let sleep_deviation = (sleep_elapsed as i64 - expected_sleep).abs() as u64;
+            
+            if let Some(event) = event_engine.analyze_cpu(sleep_deviation) {
+                session_recorder.record(event);
+            }
         }
 
         if !is_silent {

@@ -12,6 +12,8 @@ pub mod engine {
         PacketLoss { sequence: u32 },
         #[serde(rename = "interface_drop_spike")]
         InterfaceDropSpike { dropped_packets: u32 },
+        #[serde(rename = "cpu_scheduling_spike")]
+        CpuSchedulingSpike { deviation_us: u64, threshold_used_us: u64 },
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,12 +25,14 @@ pub mod engine {
 
     pub struct EventEngine {
         dynamic_jitter_threshold_ms: f64,
+        cpu_threshold_us: u64,
     }
 
     impl EventEngine {
         pub fn new(baseline: &crate::baseline::core::NetworkBaseline) -> Self {
             Self { 
-                dynamic_jitter_threshold_ms: baseline.calculate_dynamic_threshold() 
+                dynamic_jitter_threshold_ms: baseline.calculate_dynamic_threshold(),
+                cpu_threshold_us: baseline.calculate_cpu_threshold_us(),
             }
         }
 
@@ -48,6 +52,17 @@ pub mod engine {
             if current_drops > previous_drops {
                 Some(GhostlineEvent::InterfaceDropSpike {
                     dropped_packets: current_drops - previous_drops,
+                })
+            } else {
+                None
+            }
+        }
+        
+        pub fn analyze_cpu(&self, sleep_deviation_us: u64) -> Option<GhostlineEvent> {
+            if sleep_deviation_us > self.cpu_threshold_us {
+                Some(GhostlineEvent::CpuSchedulingSpike {
+                    deviation_us: sleep_deviation_us,
+                    threshold_used_us: self.cpu_threshold_us,
                 })
             } else {
                 None
