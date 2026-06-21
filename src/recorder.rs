@@ -8,13 +8,15 @@ pub mod core {
     pub struct SessionRecorder {
         pub buffer: VecDeque<EventRecord>,
         pub max_capacity: usize,
+        pub baseline: crate::baseline::core::NetworkBaseline,
     }
 
     impl SessionRecorder {
-        pub fn new(max_capacity: usize) -> Self {
+        pub fn new(max_capacity: usize, baseline: crate::baseline::core::NetworkBaseline) -> Self {
             Self {
                 buffer: VecDeque::with_capacity(max_capacity),
                 max_capacity,
+                baseline,
             }
         }
 
@@ -40,6 +42,8 @@ pub mod core {
             let report = serde_json::json!({
                 "session": "ghostline_intelligence_scan",
                 "total_events": self.buffer.len(),
+                "baseline_rtt_ms": self.baseline.average_rtt_ms,
+                "baseline_jitter_ms": self.baseline.base_jitter_ms,
                 "events": self.buffer
             });
 

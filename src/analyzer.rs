@@ -25,6 +25,9 @@ pub mod analyzer {
 
         let v: Value = serde_json::from_str(&contents).map_err(|_| "Failed to parse JSON.".to_string())?;
 
+        let base_rtt = v["baseline_rtt_ms"].as_f64().unwrap_or(0.0);
+        let base_jitter = v["baseline_jitter_ms"].as_f64().unwrap_or(2.0); // Safe fallback
+
         let events = v["events"].as_array().ok_or("No events array found in the report.")?;
         let total_events = events.len();
 
@@ -33,26 +36,42 @@ pub mod analyzer {
         let mut interface_drops = 0;
         let mut total_jitter_sum = 0.0;
         let mut max_jitter = 0.0;
+        let mut jitter_penalty = 0.0;
 
         for event_record in events {
-            if let Some(event_type) = event_record["event"].as_str() {
+            if let Some(event_type) = event_record["event"]["event"].as_str() {
                 match event_type {
                     "jitter_spike" => {
                         jitter_spikes += 1;
-                        let jitter = event_record["jitter_ms"].as_f64().unwrap_or(0.0);
+                        let jitter = event_record["event"]["jitter_ms"].as_f64().unwrap_or(0.0);
                         total_jitter_sum += jitter;
                         if jitter > max_jitter {
                             max_jitter = jitter;
                         }
+                        // Baseline Based Scoring
+                        let deviation = if jitter > base_jitter { jitter - base_jitter } else { 0.0 };
+                        jitter_penalty += deviation * 0.5; // Scale penalty by deviation severity
                     },
                     "burst_loss" => {
                         burst_losses += 1;
                     },
                     "interface_drop_spike" => {
-                        let drops = event_record["dropped_packets"].as_u64().unwrap_or(0);
+                        let drops = event_record["event"]["dropped_packets"].as_u64().unwrap_or(0);
                         interface_drops += drops;
                     },
                     _ => {}
+                }
+            } else if let Some(old_event_type) = event_record["event"].as_str() {
+                // Backwards compatibility for old JSON format
+                if old_event_type == "jitter_spike" {
+                    jitter_spikes += 1;
+                    let jitter = event_record["jitter_ms"].as_f64().unwrap_or(0.0);
+                    total_jitter_sum += jitter;
+                    if jitter > max_jitter { max_jitter = jitter; }
+                    let deviation = if jitter > base_jitter { jitter - base_jitter } else { 0.0 };
+                    jitter_penalty += deviation * 0.5;
+                } else if old_event_type == "burst_loss" {
+                    burst_losses += 1;
                 }
             }
         }
@@ -69,10 +88,10 @@ pub mod analyzer {
             "Hardware-level drops detected! Issue is likely bad ethernet cable or NIC driver.".to_string()
         } else if burst_losses > 0 {
             severity = 1;
-            "Burst Packet Loss (ISP Routing Issue). You will experience severe warping.".to_string()
-        } else if jitter_spikes > 15 && mean_spike_dev > 20.0 {
+            "Network Path Instability. Packet trains are being dropped. Check WiFi, Router, or ISP.".to_string()
+        } else if jitter_spikes > 15 && mean_spike_dev > (base_jitter * 3.0) {
             severity = 1;
-            "High Jitter Variance (Bufferbloat). Recommend QoS or OS registry tweaks.".to_string()
+            "High Jitter Variance relative to baseline (Bufferbloat). Recommend QoS or OS registry tweaks.".to_string()
         } else {
             severity = 0;
             "Connection architecture is solid. No anomalies detected.".to_string()
@@ -81,7 +100,7 @@ pub mod analyzer {
         let mut stability_index = 100.0;
         stability_index -= burst_losses as f64 * 15.0;
         stability_index -= interface_drops as f64 * 10.0;
-        stability_index -= jitter_spikes as f64 * 0.5;
+        stability_index -= jitter_penalty;
         let stability_index = if stability_index < 0.0 { 0.0 } else { stability_index };
 
         Ok(GhostlineAnalysis {

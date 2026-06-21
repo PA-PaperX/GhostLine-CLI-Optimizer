@@ -74,7 +74,7 @@ pub mod engine {
         let mut current_consecutive_loss = 0;
         let baseline = crate::baseline::core::establish_baseline(&socket, &server_addr, is_silent);
         let event_engine = crate::event::engine::EventEngine::new(&baseline);
-        let mut session_recorder = crate::recorder::core::SessionRecorder::new(1000);
+        let mut session_recorder = crate::recorder::core::SessionRecorder::new(1000, baseline.clone());
 
         let r = running_flag.clone();
         ctrlc::set_handler(move || {
