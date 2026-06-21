@@ -59,7 +59,7 @@ pub mod analyzer {
                             max_jitter = jitter;
                         }
                         // Baseline Based Scoring
-                        let deviation = if jitter > base_jitter { jitter - base_jitter } else { 0.0 };
+                        let deviation = if jitter > base_ema_jitter { jitter - base_ema_jitter } else { 0.0 };
                         jitter_penalty += deviation * 0.5; // Scale penalty by deviation severity
                     },
                     "burst_loss" => {
@@ -84,7 +84,7 @@ pub mod analyzer {
                     let jitter = event_record["jitter_ms"].as_f64().unwrap_or(0.0);
                     total_jitter_sum += jitter;
                     if jitter > max_jitter { max_jitter = jitter; }
-                    let deviation = if jitter > base_jitter { jitter - base_jitter } else { 0.0 };
+                    let deviation = if jitter > base_ema_jitter { jitter - base_ema_jitter } else { 0.0 };
                     jitter_penalty += deviation * 0.5;
                 } else if old_event_type == "burst_loss" {
                     burst_losses += 1;
@@ -108,7 +108,7 @@ pub mod analyzer {
         } else if burst_losses > 0 {
             severity = 1;
             "Network Path Instability. Packet trains are being dropped. Check WiFi, Router, or ISP.".to_string()
-        } else if jitter_spikes > 15 && mean_spike_dev > (base_jitter * 3.0) {
+        } else if jitter_spikes > 15 && mean_spike_dev > (base_ema_jitter * 3.0) {
             severity = 1;
             "High Jitter Variance relative to baseline (Bufferbloat). Recommend QoS or OS registry tweaks.".to_string()
         } else {
