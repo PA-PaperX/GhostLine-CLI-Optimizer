@@ -261,23 +261,28 @@ pub mod app {
                     InputMode::Scanning => {
                         let scan_text = vec![
                             Line::from(""),
-                            Line::from(vec![Span::styled("SCANNING LOCAL STACK & HARDWARE...", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))]),
-                            Line::from(vec![Span::styled("Please wait 10 seconds. Do not close the application.", Style::default().fg(Color::Gray))]),
+                            Line::from(vec![Span::styled("STATUS: EXECUTING GLP DIAGNOSTIC...", Style::default().fg(Color::White).add_modifier(Modifier::BOLD))]),
+                            Line::from(vec![Span::styled("> Establishing Multi-Dimensional Baseline (RTT, Jitter, CPU)", Style::default().fg(Color::Gray))]),
+                            Line::from(vec![Span::styled("> Please hold for 10 seconds...", Style::default().fg(Color::DarkGray))]),
                         ];
                         let scan_box = Paragraph::new(scan_text)
-                            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Yellow)).title(" Intelligence Engine "))
-                            .alignment(Alignment::Center);
+                            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)).title(" Telemetry "))
+                            .alignment(Alignment::Left);
                         f.render_widget(scan_box, chunks[4]);
                     }
                     InputMode::Monitoring => {
                         let scan_text = vec![
                             Line::from(""),
-                            Line::from(vec![Span::styled("BACKGROUND GAMING MONITOR ACTIVE", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))]),
-                            Line::from(vec![Span::styled("Go play your game. When you are finished, press ", Style::default().fg(Color::White)), Span::styled("Enter", Style::default().fg(Color::Green)), Span::styled(" to stop and view results.", Style::default().fg(Color::White))]),
+                            Line::from(vec![Span::styled("STATUS: BACKGROUND GAMING MONITOR ACTIVE", Style::default().fg(Color::White).add_modifier(Modifier::BOLD))]),
+                            Line::from(vec![Span::styled("> Tracking Hardware NDIS Interface", Style::default().fg(Color::Gray))]),
+                            Line::from(vec![Span::styled("> Tracking CPU Scheduling Deviation", Style::default().fg(Color::Gray))]),
+                            Line::from(vec![Span::styled("> Tracking Network Path Jitter", Style::default().fg(Color::Gray))]),
+                            Line::from(""),
+                            Line::from(vec![Span::styled("[PRESS ENTER TO STOP RECORDING AND VIEW DIAGNOSIS]", Style::default().fg(Color::DarkGray))]),
                         ];
                         let scan_box = Paragraph::new(scan_text)
-                            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Green)).title(" Intelligence Engine "))
-                            .alignment(Alignment::Center);
+                            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)).title(" Telemetry Session "))
+                            .alignment(Alignment::Left);
                         f.render_widget(scan_box, chunks[4]);
                     }
                 }
