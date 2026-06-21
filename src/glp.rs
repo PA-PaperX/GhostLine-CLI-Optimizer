@@ -72,9 +72,12 @@ pub mod engine {
         let mut received = 0;
         let mut burst_loss_count = 0;
         let mut current_consecutive_loss = 0;
+        let run_start_chrono = chrono::Utc::now();
+        let run_start_instant = std::time::Instant::now();
+
         let baseline = crate::baseline::core::establish_baseline(&socket, &server_addr, is_silent);
         let event_engine = crate::event::engine::EventEngine::new(&baseline);
-        let mut session_recorder = crate::recorder::core::SessionRecorder::new(1000, baseline.clone(), server_addr.to_string());
+        let mut session_recorder = crate::recorder::core::SessionRecorder::new(1000, baseline.clone(), server_addr.to_string(), run_start_chrono, run_start_instant);
 
         let r = running_flag.clone();
         ctrlc::set_handler(move || {
@@ -89,11 +92,9 @@ pub mod engine {
             println!("Press Ctrl+C to stop and generate report.json");
         }
         
-        let run_start_time = std::time::Instant::now();
-
         while running_flag.load(std::sync::atomic::Ordering::SeqCst) {
             if let Some(d) = duration_secs {
-                if run_start_time.elapsed().as_secs() >= d {
+                if run_start_instant.elapsed().as_secs() >= d {
                     break;
                 }
             }

@@ -18,15 +18,15 @@ pub mod core {
     }
 
     impl SessionRecorder {
-        pub fn new(max_capacity: usize, baseline: crate::baseline::core::NetworkBaseline, probe_target: String) -> Self {
+        pub fn new(max_capacity: usize, baseline: crate::baseline::core::NetworkBaseline, probe_target: String, started_at_chrono: DateTime<Utc>, started_at_instant: Instant) -> Self {
             Self {
                 buffer: VecDeque::with_capacity(max_capacity),
                 max_capacity,
                 baseline,
                 session_id: Uuid::new_v4(),
                 probe_target,
-                started_at_chrono: Utc::now(),
-                started_at_instant: Instant::now(),
+                started_at_chrono,
+                started_at_instant,
             }
         }
 
@@ -60,7 +60,8 @@ pub mod core {
 
             let ended_at_chrono = Utc::now();
             let duration_sec = self.started_at_instant.elapsed().as_secs_f64();
-            let sampling_rate_hz = if duration_sec > 0.0 { (session_sample_count as f64 / duration_sec).round() as u64 } else { 0 };
+            let total_session_samples = self.baseline.sample_size as u64 + session_sample_count;
+            let sampling_rate_hz = if duration_sec > 0.0 { (total_session_samples as f64 / duration_sec).round() as u64 } else { 0 };
 
             let os_build = crate::collector::collector::get_os_build_number();
 
@@ -74,14 +75,19 @@ pub mod core {
                 "started_at": self.started_at_chrono.to_rfc3339(),
                 "ended_at": ended_at_chrono.to_rfc3339(),
                 "duration_sec": duration_sec,
-                "session_sample_count": session_sample_count,
+                "session_sample_count": total_session_samples,
                 "sampling_rate_hz": sampling_rate_hz,
                 "total_events": self.buffer.len(),
                 "baseline_sample_count": self.baseline.sample_size,
+                "baseline_min_rtt_ms": self.baseline.min_rtt_ms,
+                "baseline_max_rtt_ms": self.baseline.max_rtt_ms,
+                "baseline_mean_rtt_ms": self.baseline.mean_rtt_ms,
                 "baseline_p50_rtt_ms": self.baseline.p50_rtt_ms,
                 "baseline_p95_rtt_ms": self.baseline.p95_rtt_ms,
                 "baseline_p99_rtt_ms": self.baseline.p99_rtt_ms,
                 "baseline_ema_jitter_ms": self.baseline.ema_jitter_ms,
+                "baseline_outlier_count": self.baseline.outlier_count,
+                "baseline_tail_spikes": self.baseline.tail_spikes,
                 "raw_samples": self.baseline.raw_samples,
                 "event_summary": event_summary,
                 "events": self.buffer

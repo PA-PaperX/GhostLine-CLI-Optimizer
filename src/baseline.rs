@@ -11,6 +11,11 @@ pub mod core {
         pub base_cpu_dev_us: u64,
         pub sample_size: u32,
         pub raw_samples: Option<Vec<f64>>,
+        pub min_rtt_ms: f64,
+        pub max_rtt_ms: f64,
+        pub mean_rtt_ms: f64,
+        pub outlier_count: u32,
+        pub tail_spikes: u32,
     }
 
     impl NetworkBaseline {
@@ -23,6 +28,11 @@ pub mod core {
                 base_cpu_dev_us: 0,
                 sample_size: 0,
                 raw_samples: None,
+                min_rtt_ms: 0.0,
+                max_rtt_ms: 0.0,
+                mean_rtt_ms: 0.0,
+                outlier_count: 0,
+                tail_spikes: 0,
             }
         }
 
@@ -91,6 +101,26 @@ pub mod core {
             baseline.p99_rtt_ms = rtt_samples[p99_idx.clamp(0, received - 1)];
             baseline.ema_jitter_ms = ema_jitter;
             baseline.sample_size = received as u32;
+
+            baseline.min_rtt_ms = rtt_samples[0];
+            baseline.max_rtt_ms = rtt_samples[received - 1];
+            baseline.mean_rtt_ms = rtt_samples.iter().sum::<f64>() / received as f64;
+
+            let outlier_threshold = baseline.p95_rtt_ms * 1.5;
+            let tail_threshold = baseline.p99_rtt_ms;
+
+            let mut outlier_count = 0;
+            let mut tail_spikes = 0;
+            for &rtt in &rtt_samples {
+                if rtt > tail_threshold {
+                    tail_spikes += 1;
+                } else if rtt > outlier_threshold {
+                    outlier_count += 1;
+                }
+            }
+            baseline.outlier_count = outlier_count;
+            baseline.tail_spikes = tail_spikes;
+
             baseline.raw_samples = Some(rtt_samples);
         }
 
