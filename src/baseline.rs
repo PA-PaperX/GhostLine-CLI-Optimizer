@@ -10,6 +10,7 @@ pub mod core {
         pub ema_jitter_ms: f64,
         pub base_cpu_dev_us: u64,
         pub sample_size: u32,
+        pub raw_samples: Option<Vec<f64>>,
     }
 
     impl NetworkBaseline {
@@ -21,6 +22,7 @@ pub mod core {
                 ema_jitter_ms: 0.0,
                 base_cpu_dev_us: 0,
                 sample_size: 0,
+                raw_samples: None,
             }
         }
 
@@ -89,6 +91,7 @@ pub mod core {
             baseline.p99_rtt_ms = rtt_samples[p99_idx.clamp(0, received - 1)];
             baseline.ema_jitter_ms = ema_jitter;
             baseline.sample_size = received as u32;
+            baseline.raw_samples = Some(rtt_samples);
         }
 
         // Measure CPU Scheduling Deviation Baseline

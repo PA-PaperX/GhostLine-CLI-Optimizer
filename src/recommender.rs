@@ -1,7 +1,8 @@
 pub mod core {
     use crate::analyzer::analyzer::GhostlineAnalysis;
+    use serde::{Serialize, Deserialize};
 
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub enum CauseCategory {
         NetworkPath,
         HardwareDriver,
@@ -22,7 +23,7 @@ pub mod core {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub enum RiskLevel {
         Safe,
         Moderate,
@@ -39,14 +40,14 @@ pub mod core {
         }
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct RootCause {
         pub category: CauseCategory,
         pub confidence: f32,
         pub evidence: Vec<String>,
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct SuggestedFix {
         pub id: String,
         pub title: String,
@@ -54,7 +55,7 @@ pub mod core {
         pub reversible: bool,
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct DiagnosticReport {
         pub causes: Vec<RootCause>,
         pub suggestions: Vec<SuggestedFix>,

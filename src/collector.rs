@@ -62,6 +62,9 @@ pub mod collector {
         pub name: String,
         pub description: String,
         pub is_wifi: bool,
+        pub network_type: String,
+        pub vpn_detected: bool,
+        pub gateway: Option<String>,
     }
 
     pub fn get_interface_metadata(if_index: u32) -> Option<InterfaceMetadata> {
@@ -114,10 +117,36 @@ pub mod collector {
                         let name_slice = std::slice::from_raw_parts(adapter.FriendlyName.0, name_len);
                         let name = OsString::from_wide(name_slice).to_string_lossy().into_owned();
 
+                        let mut gateway = None;
+                        let gw_ptr = adapter.FirstGatewayAddress;
+                        if !gw_ptr.is_null() {
+                            let sa = (*gw_ptr).Address.lpSockaddr;
+                            if (*sa).sa_family == 2 { // AF_INET
+                                let sin = sa as *const windows::Win32::Networking::WinSock::SOCKADDR_IN;
+                                let addr = (*sin).sin_addr.S_un.S_addr;
+                                gateway = Some(format!("{}.{}.{}.{}", addr & 255, (addr >> 8) & 255, (addr >> 16) & 255, (addr >> 24) & 255));
+                            }
+                        }
+
+                        let network_type = if adapter.IfType == 71 {
+                            "wifi".to_string()
+                        } else if adapter.IfType == 6 {
+                            "ethernet".to_string()
+                        } else {
+                            "unknown".to_string()
+                        };
+
+                        let desc_lower = description.to_lowercase();
+                        let name_lower = name.to_lowercase();
+                        let vpn_detected = desc_lower.contains("warp") || desc_lower.contains("wireguard") || desc_lower.contains("openvpn") || desc_lower.contains("tap") || desc_lower.contains("tun") || name_lower.contains("vpn") || desc_lower.contains("vpn");
+
                         return Some(InterfaceMetadata {
                             name,
                             description,
-                            is_wifi: adapter.IfType == 71, // IF_TYPE_IEEE80211
+                            is_wifi: adapter.IfType == 71,
+                            network_type,
+                            vpn_detected,
+                            gateway,
                         });
                     }
                     current = adapter.Next;
@@ -125,5 +154,47 @@ pub mod collector {
             }
         }
         None
+    }
+
+    #[repr(C)]
+    struct OSVERSIONINFOEXW {
+        dw_os_version_info_size: u32,
+        dw_major_version: u32,
+        dw_minor_version: u32,
+        dw_build_number: u32,
+        dw_platform_id: u32,
+        sz_csd_version: [u16; 128],
+        w_service_pack_major: u16,
+        w_service_pack_minor: u16,
+        w_suite_mask: u16,
+        w_product_type: u8,
+        w_reserved: u8,
+    }
+
+    extern "system" {
+        fn RtlGetVersion(lpVersionInformation: *mut OSVERSIONINFOEXW) -> i32;
+    }
+
+    pub fn get_os_build_number() -> Option<u32> {
+        let mut info = OSVERSIONINFOEXW {
+            dw_os_version_info_size: std::mem::size_of::<OSVERSIONINFOEXW>() as u32,
+            dw_major_version: 0,
+            dw_minor_version: 0,
+            dw_build_number: 0,
+            dw_platform_id: 0,
+            sz_csd_version: [0; 128],
+            w_service_pack_major: 0,
+            w_service_pack_minor: 0,
+            w_suite_mask: 0,
+            w_product_type: 0,
+            w_reserved: 0,
+        };
+        unsafe {
+            if RtlGetVersion(&mut info) == 0 {
+                Some(info.dw_build_number)
+            } else {
+                None
+            }
+        }
     }
 }

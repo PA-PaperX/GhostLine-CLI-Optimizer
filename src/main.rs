@@ -134,6 +134,15 @@ fn main() {
                             println!("Risk: {}\n", sug.risk.to_string().color(risk_color));
                         }
                     }
+
+                    // V20.5: Save Expert Analysis
+                    if let Ok(json_str) = serde_json::to_string_pretty(&report) {
+                        if let Ok(mut file) = std::fs::File::create("diagnostic_report.json") {
+                            use std::io::Write;
+                            let _ = file.write_all(json_str.as_bytes());
+                            println!("{}", "Expert Analysis saved to diagnostic_report.json".bright_black());
+                        }
+                    }
                 }
                 Err(e) => {
                     println!("Failed to diagnose: {}", e);
