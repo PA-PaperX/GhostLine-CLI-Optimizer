@@ -12,10 +12,10 @@ Ghostline is a fully reversible CLI/TUI application built in Rust. It acts as an
 ## 🧠 Network Intelligence
 Before we touch a single registry key, we need to know what's wrong. Ghostline includes a custom-built diagnostic engine:
 
-- **Real-Time Monitoring**: Accurately tracks RTT, Jitter, Packet Loss, and Burst Loss down to the microsecond.
+- **Real-Time Monitoring**: Accurately tracks RTT, Jitter, Packet Loss, and Burst Loss using high-resolution timing.
 - **Ghostline Probe Protocol (GLP)**: A custom UDP-based telemetry engine designed specifically to measure network stability and OS-level processing delays.
 - **Session Recording**: Start the *Background Gaming Monitor*, go play your game, and let Ghostline silently record network conditions right as the lag spikes happen.
-- **AI-Assisted Diagnostics**: Analyzes the telemetry session to identify the most likely causes of lag—whether it's hardware-level interface drops, ISP routing issues, or Windows CPU bottlenecks.
+- **Evidence-Based Diagnostics**: Analyzes the telemetry session to identify the most likely causes of lag—whether it's hardware-level interface drops, ISP routing issues, or Windows CPU bottlenecks.
 
 ---
 
@@ -24,7 +24,7 @@ Once the issue is diagnosed, Ghostline provides safe, proven, and **100% reversi
 
 - **Network Optimization**: Reconfigures `TcpAckFrequency` (disabling Nagle's Algorithm) and QoS parameters to prevent Windows from artificially buffering or throttling your game packets.
 - **OS Optimization**: Re-prioritizes the Windows CPU Scheduler (`Win32PrioritySeparation`) to heavily favor your foreground game over background tasks, reducing frame-time spikes.
-- **App Debloater**: Choose between **[SOFT]** (safe, hides apps) or **[HARD]** (permanently deletes UWP packages & Defender) debloating to free up raw memory and CPU cycles.
+- **App Debloater**: Choose between **[SOFT]** (safe, hides apps) or **[HARD]** *(Advanced Users Only - permanently deletes UWP packages & Defender)* debloating to free up raw memory and CPU cycles.
 - **One-Click Restore**: Every single action Ghostline performs is backed up locally. One click and your PC is exactly the way it was.
 
 ---
