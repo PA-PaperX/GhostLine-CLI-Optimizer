@@ -56,9 +56,14 @@ fn main() {
     match command.as_str() {
         "collector" => {
             println!("Starting Ghostline Windows Collector...");
-            let stats = collector::collector::get_total_interface_stats();
-            println!("Total Interface Drops: {}", stats.total_drops);
-            collector::collector::print_routing_table();
+            if let Some(if_idx) = collector::collector::get_default_interface_index() {
+                if let Some(stats) = collector::collector::get_interface_stats(if_idx) {
+                    println!("Default Interface Index: {}", if_idx);
+                    println!("Total Interface Drops: {}", stats.total_drops);
+                }
+            } else {
+                println!("Failed to find default interface.");
+            }
         }
         "server" => {
             if args.len() < 3 {
