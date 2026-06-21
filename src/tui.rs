@@ -231,20 +231,27 @@ pub mod app {
                                 (Color::Green, Color::LightGreen)
                             };
 
-                            let dashboard_text = vec![
+                            let mut dashboard_text = vec![
                                 Line::from(vec![Span::styled(format!("NETWORK STABILITY INDEX: {:.1} / 100", analysis.stability_index), Style::default().fg(color).add_modifier(Modifier::BOLD))]),
                                 Line::from(""),
-                                Line::from(vec![Span::styled(format!("Total Anomalies: {}", analysis.total_events), Style::default().fg(Color::White))]),
-                                Line::from(vec![Span::styled(format!("Baseline: P50 {:.2}ms | P95 {:.2}ms | P99 {:.2}ms", analysis.base_p50_rtt, analysis.base_p95_rtt, analysis.base_p99_rtt), Style::default().fg(Color::Gray))]),
-                                Line::from(vec![Span::styled(format!("EMA Jitter: {:.2}ms", analysis.base_ema_jitter), Style::default().fg(Color::Gray))]),
-                                Line::from(vec![Span::styled(format!("Jitter Spikes: {} (Max: {:.2}ms)", analysis.jitter_spikes, analysis.max_jitter), Style::default().fg(Color::Gray))]),
-                                Line::from(vec![Span::styled(format!("Burst Packet Losses: {}", analysis.burst_losses), Style::default().fg(Color::Gray))]),
-                                Line::from(vec![Span::styled(format!("Hardware Drops: {}", analysis.interface_drops), Style::default().fg(if analysis.interface_drops > 0 { Color::Red } else { Color::Gray }))]),
-                                Line::from(vec![Span::styled(format!("CPU Scheduling Spikes: {}", analysis.cpu_spikes), Style::default().fg(if analysis.cpu_spikes > 10 { Color::Red } else { Color::Gray }))]),
-                                Line::from(""),
-                                Line::from(vec![Span::styled("AI DIAGNOSIS", Style::default().fg(Color::White).add_modifier(Modifier::BOLD))]),
-                                Line::from(vec![Span::styled(&analysis.diagnosis, Style::default().fg(diag_color))]),
                             ];
+
+                            if let Some(desc) = &analysis.network_interface {
+                                let conn_type = if analysis.is_wifi.unwrap_or(false) { "Wi-Fi" } else { "Wired / Ethernet" };
+                                dashboard_text.push(Line::from(vec![Span::styled(format!("Interface: {} ({})", desc, conn_type), Style::default().fg(Color::Cyan))]));
+                            }
+
+                            dashboard_text.push(Line::from(vec![Span::styled(format!("Total Anomalies: {}", analysis.total_events), Style::default().fg(Color::White))]));
+                            dashboard_text.push(Line::from(vec![Span::styled(format!("Baseline: P50 {:.2}ms | P95 {:.2}ms | P99 {:.2}ms", analysis.base_p50_rtt, analysis.base_p95_rtt, analysis.base_p99_rtt), Style::default().fg(Color::Gray))]));
+                            dashboard_text.push(Line::from(vec![Span::styled(format!("EMA Jitter: {:.2}ms", analysis.base_ema_jitter), Style::default().fg(Color::Gray))]));
+                            dashboard_text.push(Line::from(vec![Span::styled(format!("Jitter Spikes: {} (Max: {:.2}ms)", analysis.jitter_spikes, analysis.max_jitter), Style::default().fg(Color::Gray))]));
+                            dashboard_text.push(Line::from(vec![Span::styled(format!("Burst Packet Losses: {}", analysis.burst_losses), Style::default().fg(if analysis.burst_losses > 0 { Color::Red } else { Color::Gray }))]));
+                            dashboard_text.push(Line::from(vec![Span::styled(format!("Single Packet Losses: {}", analysis.packet_losses), Style::default().fg(if analysis.packet_losses > 0 { Color::Yellow } else { Color::Gray }))]));
+                            dashboard_text.push(Line::from(vec![Span::styled(format!("Hardware Drops: {}", analysis.interface_drops), Style::default().fg(if analysis.interface_drops > 0 { Color::Red } else { Color::Gray }))]));
+                            dashboard_text.push(Line::from(vec![Span::styled(format!("CPU Scheduling Spikes: {}", analysis.cpu_spikes), Style::default().fg(if analysis.cpu_spikes > 10 { Color::Red } else { Color::Gray }))]));
+                            dashboard_text.push(Line::from(""));
+                            dashboard_text.push(Line::from(vec![Span::styled("AI DIAGNOSIS", Style::default().fg(Color::White).add_modifier(Modifier::BOLD))]));
+                            dashboard_text.push(Line::from(vec![Span::styled(&analysis.diagnosis, Style::default().fg(diag_color))]));
 
                             let dashboard_box = Paragraph::new(dashboard_text)
                                 .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(color)).title(" Intelligence Report "))

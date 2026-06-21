@@ -9,6 +9,7 @@ pub mod analyzer {
         pub total_events: usize,
         pub jitter_spikes: usize,
         pub burst_losses: usize,
+        pub packet_losses: usize,
         pub interface_drops: u64,
         pub cpu_spikes: usize,
         pub max_jitter: f64,
@@ -20,6 +21,8 @@ pub mod analyzer {
         pub base_p95_rtt: f64,
         pub base_p99_rtt: f64,
         pub base_ema_jitter: f64,
+        pub network_interface: Option<String>,
+        pub is_wifi: Option<bool>,
     }
 
     pub fn analyze_report(filename: &str) -> Result<GhostlineAnalysis, String> {
@@ -38,8 +41,12 @@ pub mod analyzer {
         let events = v["events"].as_array().ok_or("No events array found in the report.")?;
         let total_events = events.len();
 
+        let network_interface = v["session_metadata"]["network_interface"].as_str().map(|s| s.to_string());
+        let is_wifi = v["session_metadata"]["wifi"].as_bool();
+
         let mut jitter_spikes = 0;
         let mut burst_losses = 0;
+        let mut packet_losses = 0;
         let mut interface_drops = 0;
         let mut total_jitter_sum = 0.0;
         let mut max_jitter = 0.0;
@@ -67,6 +74,7 @@ pub mod analyzer {
                         burst_losses += 1;
                     },
                     "packet_loss" => {
+                        packet_losses += 1;
                         // Single packet losses aren't bursts, but still reduce stability slightly
                         let confidence = event_record["event"]["confidence"].as_f64().unwrap_or(1.0);
                         jitter_penalty += 2.0 * confidence; 
@@ -133,6 +141,7 @@ pub mod analyzer {
             total_events,
             jitter_spikes,
             burst_losses,
+            packet_losses,
             interface_drops,
             cpu_spikes,
             max_jitter,
@@ -144,6 +153,8 @@ pub mod analyzer {
             base_p95_rtt,
             base_p99_rtt,
             base_ema_jitter,
+            network_interface,
+            is_wifi,
         })
     }
 
