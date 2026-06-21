@@ -67,7 +67,7 @@ pub mod core {
         // 1. CPU Scheduling Bottleneck
         if analysis.cpu_spikes > 10 {
             let mut evidence = vec![format!("{} CPU scheduling spikes detected", analysis.cpu_spikes)];
-            let mut conf = 0.60;
+            let mut conf: f32 = 0.60;
             
             if analysis.jitter_spikes > 0 {
                 evidence.push(format!("Correlated with {} jitter spikes", analysis.jitter_spikes));
@@ -139,7 +139,7 @@ pub mod core {
                 format!("{} Burst Packet Losses detected", analysis.burst_losses),
                 format!("{} Single Packet Losses detected", analysis.packet_losses)
             ];
-            let mut conf = 0.75;
+            let mut conf: f32 = 0.75;
 
             if analysis.is_wifi.unwrap_or(false) {
                 evidence.push("Device is connected via Wi-Fi (Susceptible to interference)".to_string());
@@ -178,7 +178,7 @@ pub mod core {
                 format!("High Latency Variance ({} Jitter Spikes)", analysis.jitter_spikes),
                 format!("Spike Deviation ({:.2}ms) far exceeds EMA Baseline ({:.2}ms)", analysis.mean_spike_dev, analysis.base_ema_jitter)
             ];
-            let mut conf = 0.80;
+            let mut conf: f32 = 0.80;
 
             if analysis.packet_losses == 0 {
                 evidence.push("No packet loss implies deep router queuing (Bufferbloat)".to_string());
