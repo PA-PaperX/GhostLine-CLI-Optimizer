@@ -19,6 +19,7 @@ pub mod engine {
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct EventRecord {
         pub timestamp: String,
+        pub timestamp_us: u64,
         #[serde(flatten)]
         pub event: GhostlineEvent,
     }

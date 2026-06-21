@@ -120,7 +120,7 @@ pub mod engine {
             };
 
             if let Some(event) = event_engine.analyze_interface(previous_interface_drops, current_drops) {
-                session_recorder.record(event);
+                session_recorder.record(event, get_current_us());
             }
             previous_interface_drops = current_drops;
 
@@ -144,7 +144,7 @@ pub mod engine {
                             current_consecutive_loss = 0;
 
                             if let Some(event) = event_engine.analyze_packet(rtt_ms, jitter) {
-                                session_recorder.record(event);
+                                session_recorder.record(event, get_current_us());
                             } else {
                                 if !is_silent {
                                     println!("{}\t{:.2}\t\t{:.2}\t\t{}", sequence, rtt_ms, jitter, "OK");
@@ -167,7 +167,7 @@ pub mod engine {
                             burst_loss_count += 1;
                             current_consecutive_loss = 0; // Reset after recording burst
                         }
-                        session_recorder.record(event);
+                        session_recorder.record(event, get_current_us());
                     }
                 }
             }
@@ -179,7 +179,7 @@ pub mod engine {
             let sleep_deviation = (sleep_elapsed as i64 - expected_sleep).abs() as u64;
             
             if let Some(event) = event_engine.analyze_cpu(sleep_deviation) {
-                session_recorder.record(event);
+                session_recorder.record(event, get_current_us());
             }
         }
 
@@ -203,6 +203,8 @@ pub mod engine {
             println!("-----------------------");
         }
 
-        session_recorder.save_report("report.json");
+        let default_if_index_for_report = crate::collector::collector::get_default_interface_index();
+        let if_metadata_for_report = default_if_index_for_report.and_then(|idx| crate::collector::collector::get_interface_metadata(idx));
+        session_recorder.save_report("report.json", if_metadata_for_report);
     }
 }
