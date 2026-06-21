@@ -4,8 +4,10 @@ pub mod core {
 
     #[derive(Debug, Clone)]
     pub struct NetworkBaseline {
-        pub average_rtt_ms: f64,
-        pub base_jitter_ms: f64,
+        pub p50_rtt_ms: f64,
+        pub p95_rtt_ms: f64,
+        pub p99_rtt_ms: f64,
+        pub ema_jitter_ms: f64,
         pub base_cpu_dev_us: u64,
         pub sample_size: u32,
     }
@@ -13,15 +15,17 @@ pub mod core {
     impl NetworkBaseline {
         pub fn new() -> Self {
             Self {
-                average_rtt_ms: 0.0,
-                base_jitter_ms: 0.0,
+                p50_rtt_ms: 0.0,
+                p95_rtt_ms: 0.0,
+                p99_rtt_ms: 0.0,
+                ema_jitter_ms: 0.0,
                 base_cpu_dev_us: 0,
                 sample_size: 0,
             }
         }
 
         pub fn calculate_dynamic_threshold(&self) -> f64 {
-            let base = if self.base_jitter_ms > 0.0 { self.base_jitter_ms } else { 2.0 };
+            let base = if self.ema_jitter_ms > 0.0 { self.ema_jitter_ms } else { 2.0 };
             base * 2.5 + 5.0
         }
         
@@ -32,16 +36,13 @@ pub mod core {
     }
 
     pub fn establish_baseline(socket: &std::net::UdpSocket, target_addr: &str, is_silent: bool) -> NetworkBaseline {
-        if !is_silent {
-            println!("Establishing Network Baseline... (Gathering telemetry)");
-        }
-        let mut total_rtt = 0.0;
+        let mut rtt_samples = Vec::new();
         let mut previous_rtt = 0.0;
-        let mut total_jitter = 0.0;
-        let mut received = 0;
+        let mut ema_jitter = 0.0;
+        let alpha = 0.125; // Standard RFC 1889 jitter weighting
         
-        // Take 20 samples quickly
-        for seq in 1..=20 {
+        // Take 100 samples for robust statistical distribution
+        for seq in 1..=100 {
             let start = crate::glp::engine::get_current_us();
             let packet = crate::glp::engine::GlpPacket {
                 sequence: seq,
@@ -56,26 +57,38 @@ pub mod core {
                     if reply.sequence == seq {
                         let now = crate::glp::engine::get_current_us();
                         let rtt_ms = (now.saturating_sub(reply.timestamp_us)) as f64 / 1000.0;
-                        total_rtt += rtt_ms;
+                        rtt_samples.push(rtt_ms);
                         
-                        if received > 0 {
-                            total_jitter += (rtt_ms - previous_rtt).abs();
+                        if seq > 1 {
+                            let inst_jitter = (rtt_ms - previous_rtt).abs();
+                            if seq == 2 {
+                                ema_jitter = inst_jitter;
+                            } else {
+                                ema_jitter = ema_jitter + alpha * (inst_jitter - ema_jitter);
+                            }
                         }
                         previous_rtt = rtt_ms;
-                        received += 1;
                     }
                 }
             }
-            thread::sleep(Duration::from_millis(20)); // Fast polling for baseline
+            thread::sleep(Duration::from_millis(20));
         }
         
         let mut baseline = NetworkBaseline::new();
+        let received = rtt_samples.len();
         if received > 0 {
-            baseline.average_rtt_ms = total_rtt / received as f64;
-            if received > 1 {
-                baseline.base_jitter_ms = total_jitter / (received - 1) as f64;
-            }
-            baseline.sample_size = received;
+            // Sort samples to calculate percentiles
+            rtt_samples.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            
+            let p50_idx = (received as f64 * 0.50).round() as usize - 1;
+            let p95_idx = (received as f64 * 0.95).round() as usize - 1;
+            let p99_idx = (received as f64 * 0.99).round() as usize - 1;
+            
+            baseline.p50_rtt_ms = rtt_samples[p50_idx.clamp(0, received - 1)];
+            baseline.p95_rtt_ms = rtt_samples[p95_idx.clamp(0, received - 1)];
+            baseline.p99_rtt_ms = rtt_samples[p99_idx.clamp(0, received - 1)];
+            baseline.ema_jitter_ms = ema_jitter;
+            baseline.sample_size = received as u32;
         }
 
         // Measure CPU Scheduling Deviation Baseline
@@ -91,8 +104,8 @@ pub mod core {
         baseline.base_cpu_dev_us = total_cpu_dev_us / 10;
 
         if !is_silent {
-            println!("Baseline Established: RTT {:.2}ms | Jitter {:.2}ms | CPU Dev {}us | Samples: {}", 
-                     baseline.average_rtt_ms, baseline.base_jitter_ms, baseline.base_cpu_dev_us, baseline.sample_size);
+            println!("Baseline: P50 {:.2}ms | P95 {:.2}ms | P99 {:.2}ms | EMA Jitter {:.2}ms | CPU Dev {}us", 
+                     baseline.p50_rtt_ms, baseline.p95_rtt_ms, baseline.p99_rtt_ms, baseline.ema_jitter_ms, baseline.base_cpu_dev_us);
         }
         
         baseline

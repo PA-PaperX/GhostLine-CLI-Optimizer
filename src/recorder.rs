@@ -40,8 +40,10 @@ pub mod core {
             let report = serde_json::json!({
                 "session": "ghostline_intelligence_scan",
                 "total_events": self.buffer.len(),
-                "baseline_rtt_ms": self.baseline.average_rtt_ms,
-                "baseline_jitter_ms": self.baseline.base_jitter_ms,
+                "baseline_p50_rtt_ms": self.baseline.p50_rtt_ms,
+                "baseline_p95_rtt_ms": self.baseline.p95_rtt_ms,
+                "baseline_p99_rtt_ms": self.baseline.p99_rtt_ms,
+                "baseline_ema_jitter_ms": self.baseline.ema_jitter_ms,
                 "events": self.buffer
             });
 

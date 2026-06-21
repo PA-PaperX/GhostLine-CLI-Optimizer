@@ -16,6 +16,10 @@ pub mod analyzer {
         pub stability_index: f64,
         pub diagnosis: String,
         pub severity: u8, // 0 = OK, 1 = Warning, 2 = Critical
+        pub base_p50_rtt: f64,
+        pub base_p95_rtt: f64,
+        pub base_p99_rtt: f64,
+        pub base_ema_jitter: f64,
     }
 
     pub fn analyze_report(filename: &str) -> Result<GhostlineAnalysis, String> {
@@ -26,8 +30,10 @@ pub mod analyzer {
 
         let v: Value = serde_json::from_str(&contents).map_err(|_| "Failed to parse JSON.".to_string())?;
 
-        let base_rtt = v["baseline_rtt_ms"].as_f64().unwrap_or(0.0);
-        let base_jitter = v["baseline_jitter_ms"].as_f64().unwrap_or(2.0); // Safe fallback
+        let base_p50_rtt = v["baseline_p50_rtt_ms"].as_f64().unwrap_or(0.0);
+        let base_p95_rtt = v["baseline_p95_rtt_ms"].as_f64().unwrap_or(0.0);
+        let base_p99_rtt = v["baseline_p99_rtt_ms"].as_f64().unwrap_or(0.0);
+        let base_ema_jitter = v["baseline_ema_jitter_ms"].as_f64().unwrap_or(2.0); // Safe fallback
 
         let events = v["events"].as_array().ok_or("No events array found in the report.")?;
         let total_events = events.len();
@@ -127,6 +133,10 @@ pub mod analyzer {
             stability_index,
             diagnosis,
             severity,
+            base_p50_rtt,
+            base_p95_rtt,
+            base_p99_rtt,
+            base_ema_jitter,
         })
     }
 
