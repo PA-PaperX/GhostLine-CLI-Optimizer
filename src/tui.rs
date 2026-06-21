@@ -239,6 +239,7 @@ pub mod app {
                                 Line::from(vec![Span::styled(format!("Mean Spike Dev: {:.2} ms", analysis.mean_spike_dev), Style::default().fg(Color::Gray))]),
                                 Line::from(vec![Span::styled(format!("Burst Packet Losses: {}", analysis.burst_losses), Style::default().fg(Color::Gray))]),
                                 Line::from(vec![Span::styled(format!("Hardware Drops: {}", analysis.interface_drops), Style::default().fg(if analysis.interface_drops > 0 { Color::Red } else { Color::Gray }))]),
+                                Line::from(vec![Span::styled(format!("CPU Scheduling Spikes: {}", analysis.cpu_spikes), Style::default().fg(if analysis.cpu_spikes > 10 { Color::Red } else { Color::Gray }))]),
                                 Line::from(""),
                                 Line::from(vec![Span::styled("AI DIAGNOSIS", Style::default().fg(Color::White).add_modifier(Modifier::BOLD))]),
                                 Line::from(vec![Span::styled(&analysis.diagnosis, Style::default().fg(diag_color))]),
