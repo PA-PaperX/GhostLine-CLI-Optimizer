@@ -83,7 +83,7 @@ fn main() {
                 return;
             }
             let file = &args[2];
-            analyzer::analyzer::analyze_report(file);
+            analyzer::analyzer::print_analysis_cli(file);
         }
         "optimize" => {
             if args.len() < 3 {

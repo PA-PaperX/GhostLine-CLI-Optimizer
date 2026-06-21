@@ -23,6 +23,7 @@ pub mod app {
         MenuNetwork,
         MenuOS,
         MenuDebloater,
+        Dashboard,
     }
 
     struct Particle {
@@ -45,6 +46,7 @@ pub mod app {
         let mut input = String::new();
         let mut output_msg = String::new();
         let mut mode = InputMode::Normal;
+        let mut current_analysis: Option<crate::analyzer::analyzer::GhostlineAnalysis> = None;
 
         let main_menu_items = vec!["Network Optimizer >", "OS Optimizer >", "App Debloater >", "Analyze Report", "Exit"];
         let net_menu_items = vec!["< Back", "Optimize Network Registry", "Restore Network Registry"];
@@ -94,6 +96,7 @@ pub mod app {
                     InputMode::MenuNetwork => 5,
                     InputMode::MenuOS => 8,
                     InputMode::MenuDebloater => 9,
+                    InputMode::Dashboard => 14,
                 };
 
                 let chunks = Layout::default()
@@ -213,6 +216,42 @@ pub mod app {
 
                         f.render_stateful_widget(menu_box, h_chunks[1], &mut list_state);
                     }
+                    InputMode::Dashboard => {
+                        if let Some(analysis) = &current_analysis {
+                            let (color, diag_color) = if analysis.severity == 2 {
+                                (Color::Red, Color::LightRed)
+                            } else if analysis.severity == 1 {
+                                (Color::Yellow, Color::LightYellow)
+                            } else {
+                                (Color::Green, Color::LightGreen)
+                            };
+
+                            let dashboard_text = vec![
+                                Line::from(vec![Span::styled(format!("NETWORK STABILITY INDEX: {:.1} / 100", analysis.stability_index), Style::default().fg(color).add_modifier(Modifier::BOLD))]),
+                                Line::from(""),
+                                Line::from(vec![Span::styled(format!("Total Anomalies: {}", analysis.total_events), Style::default().fg(Color::White))]),
+                                Line::from(vec![Span::styled(format!("Jitter Spikes: {}", analysis.jitter_spikes), Style::default().fg(Color::Gray))]),
+                                Line::from(vec![Span::styled(format!("Mean Spike Dev: {:.2} ms", analysis.mean_spike_dev), Style::default().fg(Color::Gray))]),
+                                Line::from(vec![Span::styled(format!("Burst Packet Losses: {}", analysis.burst_losses), Style::default().fg(Color::Gray))]),
+                                Line::from(vec![Span::styled(format!("Hardware Drops: {}", analysis.interface_drops), Style::default().fg(if analysis.interface_drops > 0 { Color::Red } else { Color::Gray }))]),
+                                Line::from(""),
+                                Line::from(vec![Span::styled("AI DIAGNOSIS", Style::default().fg(Color::White).add_modifier(Modifier::BOLD))]),
+                                Line::from(vec![Span::styled(&analysis.diagnosis, Style::default().fg(diag_color))]),
+                            ];
+
+                            let dashboard_box = Paragraph::new(dashboard_text)
+                                .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(color)).title(" Intelligence Report "))
+                                .alignment(Alignment::Center)
+                                .style(Style::default().bg(Color::Rgb(10, 10, 10)));
+                            
+                            f.render_widget(dashboard_box, chunks[4]); // Overwrite full width for Dashboard
+                        } else {
+                            let err_box = Paragraph::new("No report found. Please run Network Collector first.")
+                                .alignment(Alignment::Center)
+                                .style(Style::default().fg(Color::Red));
+                            f.render_widget(err_box, chunks[4]);
+                        }
+                    }
                 }
 
                 if !output_msg.is_empty() {
@@ -283,8 +322,14 @@ pub mod app {
                                             mode = InputMode::MenuDebloater;
                                             list_state.select(Some(0));
                                         } else if i == 3 {
-                                            output_msg = "Analyzing... (Check analyze report logs)".to_string();
-                                            mode = InputMode::Normal;
+                                            if let Ok(analysis) = crate::analyzer::analyzer::analyze_report("report.json") {
+                                                current_analysis = Some(analysis);
+                                                mode = InputMode::Dashboard;
+                                                output_msg.clear();
+                                            } else {
+                                                output_msg = "Failed to load report.json (Run Collector first)".to_string();
+                                                mode = InputMode::Normal;
+                                            }
                                         } else if i == 4 {
                                             break;
                                         }
@@ -416,6 +461,15 @@ pub mod app {
                                             }
                                             mode = InputMode::Normal;
                                         }
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            InputMode::Dashboard => {
+                                match key.code {
+                                    KeyCode::Esc | KeyCode::Tab | KeyCode::Backspace | KeyCode::Enter | KeyCode::Left => { 
+                                        mode = InputMode::MenuMain; 
+                                        list_state.select(Some(3));
                                     }
                                     _ => {}
                                 }
