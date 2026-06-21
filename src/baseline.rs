@@ -90,8 +90,10 @@ pub mod core {
         }
         baseline.base_cpu_dev_us = total_cpu_dev_us / 10;
 
-        println!("Baseline Established: RTT {:.2}ms | Jitter {:.2}ms | CPU Dev {}us | Samples: {}", 
-                 baseline.average_rtt_ms, baseline.base_jitter_ms, baseline.base_cpu_dev_us, baseline.sample_size);
+        if !is_silent {
+            println!("Baseline Established: RTT {:.2}ms | Jitter {:.2}ms | CPU Dev {}us | Samples: {}", 
+                     baseline.average_rtt_ms, baseline.base_jitter_ms, baseline.base_cpu_dev_us, baseline.sample_size);
+        }
         
         baseline
     }

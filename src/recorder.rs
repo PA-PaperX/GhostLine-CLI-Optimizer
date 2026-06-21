@@ -31,9 +31,7 @@ pub mod core {
             };
             
             // Output JSON for the AI / Analyzer to ingest easily
-            if let Ok(json) = serde_json::to_string(&record) {
-                println!("{}", json); // Prints directly as JSON stream
-            }
+            // We removed println!("{}", json) here because it breaks the TUI rendering
 
             self.buffer.push_back(record);
         }
@@ -50,7 +48,6 @@ pub mod core {
             if let Ok(json_str) = serde_json::to_string_pretty(&report) {
                 if let Ok(mut file) = File::create(filename) {
                     let _ = file.write_all(json_str.as_bytes());
-                    println!("Intelligence Report saved to {}", filename);
                 }
             }
         }
