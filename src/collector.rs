@@ -121,7 +121,7 @@ pub mod collector {
                         let gw_ptr = adapter.FirstGatewayAddress;
                         if !gw_ptr.is_null() {
                             let sa = (*gw_ptr).Address.lpSockaddr;
-                            if (*sa).sa_family == 2 { // AF_INET
+                            if (*sa).sa_family == windows::Win32::Networking::WinSock::ADDRESS_FAMILY(2) { // AF_INET
                                 let sin = sa as *const windows::Win32::Networking::WinSock::SOCKADDR_IN;
                                 let addr = (*sin).sin_addr.S_un.S_addr;
                                 gateway = Some(format!("{}.{}.{}.{}", addr & 255, (addr >> 8) & 255, (addr >> 16) & 255, (addr >> 24) & 255));
@@ -171,7 +171,7 @@ pub mod collector {
         w_reserved: u8,
     }
 
-    extern "system" {
+    unsafe extern "system" {
         fn RtlGetVersion(lpVersionInformation: *mut OSVERSIONINFOEXW) -> i32;
     }
 
