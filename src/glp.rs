@@ -37,50 +37,68 @@ pub mod engine {
             .as_micros() as u64
     }
 
-    pub fn start_server(port: u16) {
-        let addr = format!("0.0.0.0:{}", port);
-        let socket = UdpSocket::bind(&addr).expect("Failed to bind UDP socket");
-        println!("Ghostline Server Mode listening on {}", addr);
+    pub fn start_server(port: u16, is_silent: bool) {
+        let addr = format!("127.0.0.1:{}", port);
+        let socket = match UdpSocket::bind(&addr) {
+            Ok(s) => s,
+            Err(_) => return, // Already running
+        };
+        
+        if !is_silent {
+            println!("Ghostline Server Mode listening on {}", addr);
+        }
 
         let mut buf = [0u8; 64];
         loop {
             if let Ok((size, src)) = socket.recv_from(&mut buf) {
-                // Echo back immediately to measure true network latency, not processing latency
                 let _ = socket.send_to(&buf[..size], src);
             }
         }
     }
 
-    pub fn start_client(server_ip: &str, port: u16) {
+    pub fn start_client(server_addr: &str, duration_secs: Option<u64>, is_silent: bool) {
         let socket = UdpSocket::bind("0.0.0.0:0").expect("Failed to bind client socket");
-        let server_addr = format!("{}:{}", server_ip, port);
-        println!("Ghostline Client Mode targeting {}", server_addr);
+        socket.set_read_timeout(Some(Duration::from_millis(500))).unwrap();
 
-        socket.set_read_timeout(Some(Duration::from_millis(100))).unwrap();
+        if !is_silent {
+            println!("Ghostline Engine Client targeting {}", server_addr);
+        }
 
         let mut sequence = 0;
         let mut previous_rtt = 0.0;
+        let mut previous_interface_drops = 0;
         
-        // Stats
         let mut sent = 0;
         let mut received = 0;
         let mut burst_loss_count = 0;
         let mut current_consecutive_loss = 0;
-
-        let event_engine = crate::event::engine::EventEngine::new(5.0); // 5ms jitter threshold
-        let mut session_recorder = crate::event::engine::SessionRecorder::new(1000); // 1000 events buffer
+        let baseline = crate::baseline::core::establish_baseline(&socket, &server_addr);
+        let event_engine = crate::event::engine::EventEngine::new(&baseline);
+        let mut session_recorder = crate::recorder::core::SessionRecorder::new(1000);
 
         let running = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
         let r = running.clone();
         ctrlc::set_handler(move || {
-            println!("\nStopping Client... Generating Report...");
+            if !is_silent {
+                println!("\nStopping Client... Generating Report...");
+            }
             r.store(false, std::sync::atomic::Ordering::SeqCst);
-        }).expect("Error setting Ctrl-C handler");
+        }).unwrap_or_else(|_| {});
 
-        println!("SEQ\tRTT (ms)\tJITTER (ms)\tLOSS");
-        println!("Press Ctrl+C to stop and generate report.json");
+        if !is_silent {
+            println!("SEQ\tRTT (ms)\tJITTER (ms)\tLOSS");
+            println!("Press Ctrl+C to stop and generate report.json");
+        }
         
+        let run_start_time = std::time::Instant::now();
+
         while running.load(std::sync::atomic::Ordering::SeqCst) {
+            if let Some(d) = duration_secs {
+                if run_start_time.elapsed().as_secs() >= d {
+                    break;
+                }
+            }
+
             sequence += 1;
             let packet = GlpPacket {
                 sequence,
@@ -90,6 +108,12 @@ pub mod engine {
 
             let _ = socket.send_to(&packet.to_bytes(), &server_addr);
             sent += 1;
+
+            let current_stats = crate::collector::collector::get_total_interface_stats();
+            if let Some(event) = event_engine.analyze_interface(previous_interface_drops, current_stats.total_drops) {
+                session_recorder.record(event);
+            }
+            previous_interface_drops = current_stats.total_drops;
 
             let mut buf = [0u8; 64];
             match socket.recv_from(&mut buf) {

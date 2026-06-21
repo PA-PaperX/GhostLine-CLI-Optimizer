@@ -1,5 +1,5 @@
 # Ghostline
-**An Evidence-Based Network & OS Optimizer for Gamers**
+**Gaming Network Intelligence & System Optimization Suite for Windows**
 
 Ghostline is a lightweight, fully reversible CLI/TUI application built in Rust. It fine-tunes Windows 10/11 for gaming by reducing OS-level software overhead, optimizing TCP/IP stacks, and safely debloating unnecessary background processes.
 

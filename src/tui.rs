@@ -24,6 +24,7 @@ pub mod app {
         MenuOS,
         MenuDebloater,
         Dashboard,
+        Scanning,
     }
 
     struct Particle {
@@ -47,8 +48,9 @@ pub mod app {
         let mut output_msg = String::new();
         let mut mode = InputMode::Normal;
         let mut current_analysis: Option<crate::analyzer::analyzer::GhostlineAnalysis> = None;
+        let scan_finished = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
-        let main_menu_items = vec!["Network Optimizer >", "OS Optimizer >", "App Debloater >", "Analyze Report", "Exit"];
+        let main_menu_items = vec!["Network Optimizer >", "OS Optimizer >", "App Debloater >", "Run Quick Intelligence Scan (10s)", "Analyze Existing Report", "Exit"];
         let net_menu_items = vec!["< Back", "Optimize Network Registry", "Restore Network Registry"];
         let os_menu_items = vec!["< Back", "Optimize ALL (Maximum Performance)", "Optimize CPU (Priority)", "Optimize Memory (AsyncWrite)", "Debloat (Telemetry/SysMain)", "Restore OS Settings"];
         let debloat_menu_items = vec![
@@ -92,11 +94,12 @@ pub mod app {
 
                 let input_height = match mode {
                     InputMode::Normal => 3,
-                    InputMode::MenuMain => 7,
+                    InputMode::MenuMain => 8,
                     InputMode::MenuNetwork => 5,
                     InputMode::MenuOS => 8,
                     InputMode::MenuDebloater => 9,
                     InputMode::Dashboard => 14,
+                    InputMode::Scanning => 5,
                 };
 
                 let chunks = Layout::default()
@@ -252,6 +255,17 @@ pub mod app {
                             f.render_widget(err_box, chunks[4]);
                         }
                     }
+                    InputMode::Scanning => {
+                        let scan_text = vec![
+                            Line::from(""),
+                            Line::from(vec![Span::styled("SCANNING LOCAL STACK & HARDWARE...", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))]),
+                            Line::from(vec![Span::styled("Please wait 10 seconds. Do not close the application.", Style::default().fg(Color::Gray))]),
+                        ];
+                        let scan_box = Paragraph::new(scan_text)
+                            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Yellow)).title(" Intelligence Engine "))
+                            .alignment(Alignment::Center);
+                        f.render_widget(scan_box, chunks[4]);
+                    }
                 }
 
                 if !output_msg.is_empty() {
@@ -273,6 +287,17 @@ pub mod app {
                 ]).alignment(Alignment::Center);
                 f.render_widget(footer, chunks[7]);
             })?;
+
+            if mode == InputMode::Scanning && scan_finished.load(std::sync::atomic::Ordering::SeqCst) {
+                scan_finished.store(false, std::sync::atomic::Ordering::SeqCst);
+                if let Ok(analysis) = crate::analyzer::analyzer::analyze_report("report.json") {
+                    current_analysis = Some(analysis);
+                    mode = InputMode::Dashboard;
+                } else {
+                    output_msg = "Scan finished, but failed to load report.json".to_string();
+                    mode = InputMode::Normal;
+                }
+            }
 
             let timeout = tick_rate.checked_sub(last_tick.elapsed()).unwrap_or_else(|| Duration::from_secs(0));
 
@@ -322,15 +347,27 @@ pub mod app {
                                             mode = InputMode::MenuDebloater;
                                             list_state.select(Some(0));
                                         } else if i == 3 {
+                                            let sf = scan_finished.clone();
+                                            std::thread::spawn(move || {
+                                                crate::glp::engine::start_server(13337, true);
+                                            });
+                                            std::thread::spawn(move || {
+                                                std::thread::sleep(std::time::Duration::from_millis(100));
+                                                crate::glp::engine::start_client("127.0.0.1:13337", Some(10), true);
+                                                sf.store(true, std::sync::atomic::Ordering::SeqCst);
+                                            });
+                                            mode = InputMode::Scanning;
+                                            output_msg.clear();
+                                        } else if i == 4 {
                                             if let Ok(analysis) = crate::analyzer::analyzer::analyze_report("report.json") {
                                                 current_analysis = Some(analysis);
                                                 mode = InputMode::Dashboard;
                                                 output_msg.clear();
                                             } else {
-                                                output_msg = "Failed to load report.json (Run Collector first)".to_string();
+                                                output_msg = "Failed to load report.json (Run Scan first)".to_string();
                                                 mode = InputMode::Normal;
                                             }
-                                        } else if i == 4 {
+                                        } else if i == 5 {
                                             break;
                                         }
                                     }
@@ -470,6 +507,15 @@ pub mod app {
                                     KeyCode::Esc | KeyCode::Tab | KeyCode::Backspace | KeyCode::Enter | KeyCode::Left => { 
                                         mode = InputMode::MenuMain; 
                                         list_state.select(Some(3));
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            InputMode::Scanning => {
+                                match key.code {
+                                    KeyCode::Esc => {
+                                        mode = InputMode::MenuMain;
+                                        output_msg = "Scan Aborted (Running in background)".to_string();
                                     }
                                     _ => {}
                                 }

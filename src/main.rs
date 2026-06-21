@@ -66,7 +66,7 @@ fn main() {
                 return;
             }
             let port: u16 = args[2].parse().unwrap_or(8080);
-            glp::engine::start_server(port);
+            glp::engine::start_server(port, false);
         }
         "client" => {
             if args.len() < 4 {
@@ -75,7 +75,8 @@ fn main() {
             }
             let ip = &args[2];
             let port: u16 = args[3].parse().unwrap_or(8080);
-            glp::engine::start_client(ip, port);
+            let addr = format!("{}:{}", ip, port);
+            glp::engine::start_client(&addr, None, false);
         }
         "analyze" => {
             if args.len() < 3 {

@@ -8,11 +8,18 @@ pub mod collector {
     use windows::Win32::Networking::WinSock::{AF_UNSPEC, AF_INET};
     use std::ptr;
 
-    pub fn print_interfaces() {
-        println!("Initializing Windows Network Collector...");
-        
+    #[derive(Debug, Clone, Copy)]
+    pub struct InterfaceStats {
+        pub total_drops: u32,
+        pub total_errors: u32,
+        pub bytes_rcvd: u64,
+        pub bytes_sent: u64,
+    }
+
+    pub fn get_total_interface_stats() -> InterfaceStats {
         let mut out_buf_len: u32 = 15000;
         let mut buffer: Vec<u8> = vec![0; out_buf_len as usize];
+        let mut stats = InterfaceStats { total_drops: 0, total_errors: 0, bytes_rcvd: 0, bytes_sent: 0 };
 
         unsafe {
             let mut result = GetAdaptersAddresses(
@@ -38,41 +45,23 @@ pub mod collector {
                 let mut current = buffer.as_ptr() as *const IP_ADAPTER_ADDRESSES_LH;
                 while !current.is_null() {
                     let adapter = &*current;
-                    let desc_string = if !adapter.Description.0.is_null() {
-                        let len = (0..).take_while(|&i| *adapter.Description.0.add(i) != 0).count();
-                        let slice = std::slice::from_raw_parts(adapter.Description.0, len);
-                        String::from_utf16_lossy(slice)
-                    } else {
-                        String::from("Unknown")
-                    };
-
                     let if_index = adapter.Anonymous1.Anonymous.IfIndex;
 
-                    println!("Found Adapter: {} (MTU: {}) [IfIndex: {}]", desc_string, adapter.Mtu, if_index);
+                    let mut row = MIB_IF_ROW2::default();
+                    row.InterfaceIndex = if_index;
                     
-                    // Call print_interface_stats for each interface
-                    print_interface_stats(if_index);
+                    if GetIfEntry2(&mut row).is_ok() {
+                        stats.bytes_rcvd += row.InOctets;
+                        stats.bytes_sent += row.OutOctets;
+                        stats.total_drops += (row.InDiscards + row.OutDiscards) as u32;
+                        stats.total_errors += (row.InErrors + row.OutErrors) as u32;
+                    }
 
                     current = adapter.Next;
                 }
-            } else {
-                println!("Failed to get adapters. Error code: {}", result);
             }
         }
-    }
-
-    unsafe fn print_interface_stats(if_index: u32) {
-        let mut row = MIB_IF_ROW2::default();
-        row.InterfaceIndex = if_index;
-        
-        // Use windows crate Result handling if applicable, or check ERROR_SUCCESS
-        let result = unsafe { GetIfEntry2(&mut row) };
-        if result.is_ok() {
-            println!("  -> Bytes Rcvd: {} | Bytes Sent: {} | Drops: {} | Errors: {}", 
-                     row.InOctets, row.OutOctets, row.InDiscards + row.OutDiscards, row.InErrors + row.OutErrors);
-        } else {
-            println!("  -> Failed to get interface stats.");
-        }
+        stats
     }
 
     pub fn print_routing_table() {
@@ -85,7 +74,6 @@ pub mod collector {
                 let num_entries = table.NumEntries;
                 println!("Found {} IPv4 route entries.", num_entries);
                 
-                // Let's just print the first 5 entries to avoid spamming the console
                 let limit = if num_entries > 5 { 5 } else { num_entries };
                 for i in 0..limit {
                     let row = &*table.Table.as_ptr().add(i as usize);
@@ -93,8 +81,6 @@ pub mod collector {
                 }
                 
                 FreeMibTable(table_ptr as *const core::ffi::c_void);
-            } else {
-                println!("Failed to get routing table.");
             }
         }
     }

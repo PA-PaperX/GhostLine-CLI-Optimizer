@@ -1,0 +1,25 @@
+{
+  "session": "ghostline_intelligence_scan",
+  "total_events": 3,
+  "events": [
+    {
+      "timestamp": "2026-06-21T10:00:00Z",
+      "event": "jitter_spike",
+      "jitter_ms": 25.5,
+      "current_rtt_ms": 40.0,
+      "threshold_used": 15.0
+    },
+    {
+      "timestamp": "2026-06-21T10:00:05Z",
+      "event": "jitter_spike",
+      "jitter_ms": 35.0,
+      "current_rtt_ms": 50.0,
+      "threshold_used": 15.0
+    },
+    {
+      "timestamp": "2026-06-21T10:00:10Z",
+      "event": "interface_drop_spike",
+      "dropped_packets": 3
+    }
+  ]
+}
